@@ -53,7 +53,7 @@ public class TextNormalization {
      }
     
      public static void tokenize() {                    
-      String text = "ҚР 28-ші ата-анасы келді. Сосын ҚТЖ 87078940178 номеріне 3458 рет звондады";
+      String text = "ҚР 28-ші ата-анасы келді. Сосын А.Б ҚТЖ 87078940178 номеріне 3458 рет звондады";
       String[] sentences = SentenceDetect(text);
             
       for (String sentence:sentences) {
@@ -141,7 +141,7 @@ public class TextNormalization {
           }
           case 4:{
               if (abbrs.containsKey(st)) ans = abbrs.get(st); 
-              else ans = st;
+              else ans = getNormToken(st);
               break;
           }
         }
@@ -159,7 +159,8 @@ public class TextNormalization {
           switch(z) {
               case 1: ans = a1[k];break;
               case 2: ans = a2[k]+" "+ans;break;
-              case 3: ans = a1[k]+" жүз "+ans;
+              case 3: ans = a1[k]+" жүз "+ans;break;
+              case 4: ans = a1[k]+" мың "+ans;break;
           }
       }
       int i=0;
