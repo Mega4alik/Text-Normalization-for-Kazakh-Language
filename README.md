@@ -1,6 +1,6 @@
 Text-Normalization-for-Kazakh-Language
 ======================================
-Now we recognize the Sentences and Abbraviations!
+Now we recognize the Sentences and Abbreviations!
 
 Example: 
 ҚР 28-ші ата-анасы келді. Сосын ҚТЖ 87078940178 номеріне 3458 рет звондады
