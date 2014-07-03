@@ -12,19 +12,25 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.List;
 
-import edu.stanford.nlp.ling.CoreLabel;
-import edu.stanford.nlp.ling.HasWord;
-import edu.stanford.nlp.process.CoreLabelTokenFactory;
-import edu.stanford.nlp.process.DocumentPreprocessor;
-import edu.stanford.nlp.process.PTBTokenizer;
+
+import java.io.FileInputStream;
+import java.io.InputStream;
 import java.text.BreakIterator;
 import java.util.ArrayList;
-public class TextNormalization {
-    //static char letters[] = new char[]{'а','ә','б',}
-    static int patterns_n = 3;
+import java.util.Arrays;
+import java.util.HashMap;
+import opennlp.tools.sentdetect.SentenceDetectorME;
+import opennlp.tools.sentdetect.SentenceModel;
+import opennlp.tools.util.InvalidFormatException;
+public class TextNormalization {    
+    static int patterns_n = 4;
     static ArrayList<rule_structure>[] patterns = new ArrayList[101];
-    
-    public static void main(String[] args) throws Exception{
+    static HashMap<String,String> abbrs = new HashMap<String,String>();
+    static {
+        abbrs.put("ҚР","Қазақстан Республикасы");
+        abbrs.put("ҚТЖ","Қазақстан Темір жолы");
+    }
+    public static void main(String[] args) throws Exception {
       //Ini patterns
       //number 1,2,1232132132  
       patterns[1] = new ArrayList<rule_structure>();
@@ -39,56 +45,66 @@ public class TextNormalization {
       patterns[3].add(new rule_structure(new int[]{1,2},1,99));
       patterns[3].add(new rule_structure(new int[]{4},1,1));
       patterns[3].add(new rule_structure(new int[]{1,2},1,99));
+      //ҚР
+      patterns[4] = new ArrayList<rule_structure>();
+      patterns[4].add(new rule_structure(new int[]{2},1,99));
       //endOf Ini patterns            
       tokenize();
      }
     
-     public static void tokenize() {         
-      String ans = "";
-      List a = get_tokens("12-ші ата-ана,  Осы 8(707)123123203. телефон");
+     public static void tokenize() {                    
+      String text = "ҚР 28-ші ата-анасы келді. Сосын ҚТЖ 87078940178 номеріне 3458 рет звондады";
+      String[] sentences = SentenceDetect(text);
+            
+      for (String sentence:sentences) {
+      String ans = ""; 
+      List a = get_tokens(sentence);
       for (int i=0;i<a.size();i++) {
           String token = a.get(i).toString();          
           int j = get_pattern(token);               
-          ans+=normalize(token,j)+" ";                                     
-          //System.out.println(j+" "+token+" "+normalize(token,j));
+          //System.out.println(j+" "+token+" ");
+          ans+=normalize(token,j)+" ";                                               
+      }            
+      //System.out.println(a.toString());      
+      System.out.println(ans);
       }
       
-      
-      System.out.println(a.toString());      
-      System.out.println(ans);
      }
      
      public static int get_pattern(String st){         
-         int len = 0,last_k=0;
-         int[] a = new int[10],b = new int[10];
-         
+         int len = 0;
+         int[] a = new int[101];         
          for (int i=0;i<st.length();i++) {
              char ch = st.charAt(i);
              int k=getK(ch);                          
-             if (k>0) {
-              if (last_k!=k) {
+             if (k>0) {             
                  len++;
-                 a[len] = k;
-                 b[len] = 1;
-              } else {
-                  b[len]++;
-              }
-              last_k = k;
+                 a[len] = k;             
              }
          }
-        
+                 
          //getting pattern
          for (int i=1;i<=patterns_n;i++) 
              recognize: {
-             if (patterns[i].size()==len) {              
-              for (int j=1;j<=len;j++)
-                 if (!(patterns[i].get(j-1).set.contains(a[j]) && (b[j]>=patterns[i].get(j-1).length_from && b[j]<=patterns[i].get(j-1).length_to)))
-                      break recognize;                 
-              return i;
-              }
-             
-             }
-         
+              int curr_len=0,j2=0,j=1,curr_pattern_len = patterns[i].size();                           
+              while (j<=len) {                  
+                  int k = a[j];                  
+                  int lf = patterns[i].get(j2).length_from, lt = patterns[i].get(j2).length_to;
+                  ArrayList<Integer> set = patterns[i].get(j2).set;
+                  
+                 if (set.contains(k) && curr_len+1<=lt) {curr_len++;j++;}                                   
+                 else if (!set.contains(k)) {
+                     if (curr_len < lf) break recognize;
+                     j2++;
+                     if (j2==curr_pattern_len) break recognize;
+                     curr_len=0;
+                 }
+                 else if (curr_len+1>lt) break recognize;
+                 else break recognize;                 
+              }              
+              if (len==0 || j2!=curr_pattern_len-1) break recognize;
+              return i;                           
+             }         
          //endOf getting pattern
          return -1;
      }
@@ -123,8 +139,13 @@ public class TextNormalization {
               ans = getNormToken(a[0])+" "+getNormToken(a[1]);              
               break;
           }
+          case 4:{
+              if (abbrs.containsKey(st)) ans = abbrs.get(st); 
+              else ans = st;
+              break;
+          }
         }
-         return ans;    
+         return ans.toLowerCase();    
      }
      
      //
@@ -193,16 +214,31 @@ public class TextNormalization {
                 
                 //Ans
                 ArrayList<String> ans = new ArrayList<String>();
-                for (int i=0;i<tokens.size()-2;i++) 
-                    if (get_pattern(tokens.get(i)+tokens.get(i+1)+tokens.get(i+2))==2) {
+                int len = tokens.size();
+                for (int i=0;i<len;i++) 
+                    if (i<len-2 && get_pattern(tokens.get(i)+tokens.get(i+1)+tokens.get(i+2))==2) {
                         ans.add(tokens.get(i)+tokens.get(i+1)+tokens.get(i+2));
                         i+=2;
                     } else ans.add(tokens.get(i));
                         
                 return ans;
         }
-    }
-
+    
+ public static String[] SentenceDetect(String paragraph)  {	 
+	// always start with a model, a model is learned from training data
+        String sentences[] = null;
+        try {
+	InputStream is = new FileInputStream("en-sent.bin");
+	SentenceModel model = new SentenceModel(is);
+	SentenceDetectorME sdetector = new SentenceDetectorME(model);
+ 
+	sentences = sdetector.sentDetect(paragraph);
+        is.close();        
+        } catch(Exception e){e.printStackTrace();}
+	
+        return sentences;
+  } 
+}
 
 class rule_structure{
     ArrayList<Integer> set = new ArrayList<Integer>();
