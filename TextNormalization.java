@@ -5,8 +5,12 @@
 package textnormalization;
 
 /**
- *
- * @author YourFlavor-CEO
+ * @author Anuar Sh
+ * 1 - lower
+ * 2 - upper
+ * 3 - number
+ * 4 - -
+ * 5 - .
  */
 import java.io.FileReader;
 import java.io.IOException;
@@ -23,12 +27,12 @@ import opennlp.tools.sentdetect.SentenceDetectorME;
 import opennlp.tools.sentdetect.SentenceModel;
 import opennlp.tools.util.InvalidFormatException;
 public class TextNormalization {    
-    static int patterns_n = 4;
+    static int patterns_n = 3;
     static ArrayList<rule_structure>[] patterns = new ArrayList[101];
     static HashMap<String,String> abbrs = new HashMap<String,String>();
     static {
-        abbrs.put("ҚР","Қазақстан Республикасы");
-        abbrs.put("ҚТЖ","Қазақстан Темір жолы");
+        abbrs.put("ҚР","қазақстан республикасы");
+        abbrs.put("ҚТЖ","қазақстан темір жолы");
     }
     public static void main(String[] args) throws Exception {
       //Ini patterns
@@ -39,21 +43,16 @@ public class TextNormalization {
       patterns[2] = new ArrayList<rule_structure>();
       patterns[2].add(new rule_structure(new int[]{3},1,5)); 
       patterns[2].add(new rule_structure(new int[]{4},1,1)); 
-      patterns[2].add(new rule_structure(new int[]{1},1,10)); 
-      //ана-мен
-      patterns[3] = new ArrayList<rule_structure>();
-      patterns[3].add(new rule_structure(new int[]{1,2},1,99));
-      patterns[3].add(new rule_structure(new int[]{4},1,1));
-      patterns[3].add(new rule_structure(new int[]{1,2},1,99));
+      patterns[2].add(new rule_structure(new int[]{1},1,10));      
       //ҚР
-      patterns[4] = new ArrayList<rule_structure>();
-      patterns[4].add(new rule_structure(new int[]{2},1,99));
+      patterns[3] = new ArrayList<rule_structure>();
+      patterns[3].add(new rule_structure(new int[]{2,5},1,99));
       //endOf Ini patterns            
       tokenize();
      }
     
      public static void tokenize() {                    
-      String text = "ҚР 28-ші ата-анасы келді. Сосын А.Б ҚТЖ 87078940178 номеріне 3458 рет звондады";
+      String text = "ҚР 20,01,1993 28-ші ата-анасы келді. Сосын А.Б ҚТЖ 87078940178 номеріне 3458 рет звондады";
       String[] sentences = SentenceDetect(text);
             
       for (String sentence:sentences) {
@@ -62,7 +61,7 @@ public class TextNormalization {
       for (int i=0;i<a.size();i++) {
           String token = a.get(i).toString();          
           int j = get_pattern(token);               
-          //System.out.println(j+" "+token+" ");
+          //System.out.println(j+" "+token+" "+normalize(token,j));
           ans+=normalize(token,j)+" ";                                               
       }            
       //System.out.println(a.toString());      
@@ -71,16 +70,14 @@ public class TextNormalization {
       
      }
      
-     public static int get_pattern(String st){         
+     public static int get_pattern(String st) {         
          int len = 0;
          int[] a = new int[101];         
          for (int i=0;i<st.length();i++) {
              char ch = st.charAt(i);
-             int k=getK(ch);                          
-             if (k>0) {             
+             int k=getK(ch);                                                    
                  len++;
-                 a[len] = k;             
-             }
+                 a[len] = k;                          
          }
                  
          //getting pattern
@@ -133,19 +130,17 @@ public class TextNormalization {
              String[] a = st.split("-");
              ans = get_NumberNorm(a[0])+"н"+a[1];        
              break;
-          }
+          }        
           case 3:{
-              String[] a = st.split("-");              
-              ans = getNormToken(a[0])+" "+getNormToken(a[1]);              
-              break;
-          }
-          case 4:{
+              st = st.replace(".","");
               if (abbrs.containsKey(st)) ans = abbrs.get(st); 
               else ans = getNormToken(st);
               break;
           }
         }
-         return ans.toLowerCase();    
+        
+         
+         return ans;    
      }
      
      //
@@ -171,17 +166,29 @@ public class TextNormalization {
 
      
      static String getNormToken(String st){
-         String ans = "";
-         for (int i=0;i<st.length();i++)
-             if (getK(st.charAt(i))>0) ans+=st.charAt(i);
+         String ans = "",last_number="";
+         int len = st.length();
+         st = st.toLowerCase();
+         
+         for (int i=0;i<len;i++) {
+          char ch = st.charAt(i);   
+          int  k = getK(ch);
+          if (k==3) last_number+=ch;
+          if ((k!=3 || i==len-1) && last_number.length()>0) {ans+=get_NumberNorm(last_number)+" ";last_number="";}
+          if (k==1) ans+=ch;          
+          if (k!=1 && k!=3) ans+=" ";
+         }
+         
          return ans;
      }
+     
      static int getK(char ch){
          int k = 0;
           if (isLetter(ch, "lower")) k=1; else
              if (isLetter(ch, "upper")) k=2; else
              if (ch>='0' && ch<='9') k=3; else
-             if (ch=='-') k=4;       
+             if (ch=='-') k=4; else
+             if (ch=='.') k=5;
           return k;
      }
      
