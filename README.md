@@ -1,4 +1,4 @@
-Updated 14 July
+Updated 31 July
 Text-Normalization-for-Kazakh-Language
 ======================================
 Now we recognize Sentences and Abbreviations!
