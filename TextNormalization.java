@@ -23,11 +23,11 @@ import java.text.BreakIterator;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import opennlp.tools.sentdetect.SentenceDetectorME;
+ import opennlp.tools.sentdetect.SentenceDetectorME;
 import opennlp.tools.sentdetect.SentenceModel;
 import opennlp.tools.util.InvalidFormatException;
 public class TextNormalization {    
-    static int patterns_n = 3;
+    static int patterns_n = 4;
     static ArrayList<rule_structure>[] patterns = new ArrayList[101];
     static HashMap<String,String> abbrs = new HashMap<String,String>();
     static {
@@ -47,12 +47,21 @@ public class TextNormalization {
       //ҚР
       patterns[3] = new ArrayList<rule_structure>();
       patterns[3].add(new rule_structure(new int[]{2,5},1,99));
+      //20.01.1993-ды
+      patterns[4] = new ArrayList<rule_structure>();
+      patterns[4].add(new rule_structure(new int[]{3},2,2));
+      patterns[4].add(new rule_structure(new int[]{5},1,1));      
+      patterns[4].add(new rule_structure(new int[]{3},2,2));
+      patterns[4].add(new rule_structure(new int[]{5},1,1));
+      patterns[4].add(new rule_structure(new int[]{3},2,4));            
+      patterns[4].add(new rule_structure(new int[]{4},0,1));
+      patterns[4].add(new rule_structure(new int[]{1},0,99));
       //endOf Ini patterns            
       tokenize();
      }
     
      public static void tokenize() {                    
-      String text = "ҚР 20,01,1993 28-ші ата-анасы келді. Сосын А.Б ҚТЖ 87078940178 номеріне 3458 рет звондады";
+      String text = "ҚР 20.01.1993 28-ші ата-анасы келді. Сосын А.Б ҚТЖ 87078940178 номеріне 3458 рет звондады";      
       String[] sentences = SentenceDetect(text);
             
       for (String sentence:sentences) {
@@ -79,16 +88,15 @@ public class TextNormalization {
                  len++;
                  a[len] = k;                          
          }
-                 
+         
          //getting pattern
-         for (int i=1;i<=patterns_n;i++) 
+         for (int i=4;i<=patterns_n;i++) 
              recognize: {
               int curr_len=0,j2=0,j=1,curr_pattern_len = patterns[i].size();                           
               while (j<=len) {                  
-                  int k = a[j];                  
+                  int k = a[j]; 
                   int lf = patterns[i].get(j2).length_from, lt = patterns[i].get(j2).length_to;
-                  ArrayList<Integer> set = patterns[i].get(j2).set;
-                  
+                  ArrayList<Integer> set = patterns[i].get(j2).set;                                  
                  if (set.contains(k) && curr_len+1<=lt) {curr_len++;j++;}                                   
                  else if (!set.contains(k)) {
                      if (curr_len < lf) break recognize;
@@ -98,7 +106,9 @@ public class TextNormalization {
                  }
                  else if (curr_len+1>lt) break recognize;
                  else break recognize;                 
-              }              
+              }                            
+              //if prefix ok but suffix are may be zeros              
+              while(j2<curr_pattern_len-1 && patterns[i].get(j2+1).length_from==0) j2++;                                               
               if (len==0 || j2!=curr_pattern_len-1) break recognize;
               return i;                           
              }         
@@ -114,7 +124,7 @@ public class TextNormalization {
               ans = getNormToken(st);
               break;
           }
-          case 1:{ //number
+          case 1:{ 
              if (st.length()>6) {
                  int step_len = 2,i=0;
                  if (st.length()%2==1) step_len = 3;
@@ -137,6 +147,30 @@ public class TextNormalization {
               else ans = getNormToken(st);
               break;
           }
+          case 4:{
+              String[] a = st.split("-"),a1 = a[0].split("\\.");
+              String day = get_NumberNorm(a1[0])+(a1[0].equals("20") ? "сншы":"нші");
+              int mk = Integer.parseInt(a1[1]);
+              String month_arr[] = new String[]{
+                  "",   
+                  "қаңтар",
+                  "ақпан",
+                  "наурыз",
+                  "сәуір",
+                  "мамыр",
+                  "маусым",
+                  "шілде",
+                  "тамыз",
+                  "қыркұйек",              
+                  "қазан",
+                  "қараша",
+                  "желтоқсан"                             
+              };
+              String month = month_arr[mk], 
+                     year = get_NumberNorm(a1[2])+(a.length>1 ? "н"+a[1] : "");
+              ans = day+" "+month+" "+year;
+              break;
+          }
         }
         
          
@@ -144,7 +178,7 @@ public class TextNormalization {
      }
      
      //
-     static String get_NumberNorm(String st) {
+     static String get_NumberNorm(String st) {  
       String ans = "";int len = st.length(),z=0;
       String[] a1 = new String[]{"","бір","екі","үш","төрт","бес","алты","жеті","сегіз","тоғыз"};
       String[] a2 = new String[]{"","он","жиырма","отыз","қырық","елу","алпыс","жетпіс","сексен","тоқсан"};
@@ -160,7 +194,7 @@ public class TextNormalization {
       }
       int i=0;
       while (i<st.length() && st.charAt(i)=='0') {ans = "ноль "+ans;i++;}
-      return ans;
+      return ans.trim();
      }
      //
 
@@ -224,7 +258,7 @@ public class TextNormalization {
                 ArrayList<String> ans = new ArrayList<String>();
                 int len = tokens.size();
                 for (int i=0;i<len;i++) 
-                    if (i<len-2 && get_pattern(tokens.get(i)+tokens.get(i+1)+tokens.get(i+2))==2) {
+                    if (i<len-2 && get_pattern(tokens.get(i)+tokens.get(i+1)+tokens.get(i+2))>0) {
                         ans.add(tokens.get(i)+tokens.get(i+1)+tokens.get(i+2));
                         i+=2;
                     } else ans.add(tokens.get(i));
